@@ -27,6 +27,8 @@ export default class TransformTool extends EventsEmitter {
 
     this._selectedFragProxyMap = {}
 
+    this.enabled = false
+
     this.onTxChange =
       this.onTxChange.bind(this)
 
@@ -170,6 +172,21 @@ export default class TransformTool extends EventsEmitter {
     }
   }
 
+  hide() {
+    this._transformControlTx.visible = false;
+    this.enabled = false;
+  }
+
+  show() {
+    this._transformControlTx.visible = true;
+    this.enabled = true;
+  }
+
+  toggleView() {
+    this._transformControlTx.visible = !this._transformControlTx.visible;
+    this.enabled = !this.enabled;
+  }
+
   initializeSelection (hitPoint) {
 
     this._selectedFragProxyMap = {}
@@ -183,7 +200,7 @@ export default class TransformTool extends EventsEmitter {
       z: hitPoint.z - modelTransform.translation.z
     }
 
-    this._transformControlTx.visible = true
+    this._transformControlTx.visible = this.enabled
 
     this._transformControlTx.setPosition(
       hitPoint)

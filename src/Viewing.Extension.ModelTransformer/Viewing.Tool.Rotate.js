@@ -18,22 +18,18 @@ export default class RotateTool extends EventsEmitter {
 
     this.fullTransform = false
 
-    this.viewer.toolController.registerTool(this)
+    this._hitPoint = new THREE.Vector3()
 
-    this.selectedObject = null;
+    this.viewer.toolController.registerTool(this)
 
     this.onAggregateSelectionChangedHandler = (e) => {
 
       this.onAggregateSelectionChanged(e)
     }
-
-    this.viewer.addEventListener(
-      Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT,
-      this.onAggregateSelectionChangedHandler)
   }
 
   /////////////////////////////////////////////////////////////////
-  // Enable tool
+  //
   //
   /////////////////////////////////////////////////////////////////
   enable (enable) {
@@ -69,7 +65,7 @@ export default class RotateTool extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////
-  // activate tool
+  //
   //
   ///////////////////////////////////////////////////////////////////
   activate () {
@@ -77,7 +73,10 @@ export default class RotateTool extends EventsEmitter {
     if (!this.active) {
 
       this.active = true
-      this.onAggregateSelectionChanged(this.selectedObject)
+
+      this.viewer.addEventListener(
+        Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT,
+        this.onAggregateSelectionChangedHandler)
     }
   }
 
@@ -97,68 +96,32 @@ export default class RotateTool extends EventsEmitter {
         this.rotateControl = null
       }
 
-      // this.viewer.removeEventListener(
-      //   Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT,
-      //   this.onAggregateSelectionChangedHandler)
+      this.viewer.removeEventListener(
+        Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT,
+        this.onAggregateSelectionChangedHandler)
     }
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Component Selection Handler 
-  // (use Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT instead of 
-  //  Autodesk.Viewing.SELECTION_CHANGED_EVENT - deprecated )
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
   onAggregateSelectionChanged (event) {
-
-    this.selectedObject = event;
-    if (!this.active) {
-      return;
-    }
 
     if (this.rotateControl && this.rotateControl.engaged) {
 
       this.rotateControl.engaged = false
 
-      this.viewer.select(this.selection.dbIdArray)
+      //this.viewer.select(this.selection.dbIdArray)
 
       return
     }
 
-    if (selectionStatus.rotatable && event.selections && event.selections.length) {
+    if (event.selections && event.selections.length) {
 
-      var selection = event.selections[ 0 ]
+      var selection = event.selections[0]
 
-      this.selection = selection
-
-      this.emit('transform.modelSelected',
-        this.selection)
-
-      if (this.fullTransform) {
-
-        this.selection.fragIdsArray = []
-
-        var fragCount = selection.model.getFragmentList().
-          fragments.fragId2dbId.length
-
-        for (var fragId = 0; fragId < fragCount; ++fragId) {
-
-          this.selection.fragIdsArray.push(fragId)
-        }
-
-        this.selection.dbIdArray = []
-
-        var instanceTree = selection.model.getData().instanceTree
-
-        var rootId = instanceTree.getRootId()
-
-        this.selection.dbIdArray.push(rootId)
-      }
-
-      this.drawControl()
-
-      this.viewer.fitToView(
-        this.selection.dbIdArray)
+      this.setSelection(selection)
 
     } else {
 
@@ -167,10 +130,49 @@ export default class RotateTool extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Selection cleared
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
-  clearSelection () {
+  setSelection(selection) {
+
+    this.selection = selection
+
+    this.emit('transform.modelSelected',
+      this.selection)
+
+    if (this.fullTransform) {
+
+      this.selection.fragIdsArray = []
+
+      var fragCount = selection.model.getFragmentList().
+        fragments.fragId2dbId.length
+
+      for (var fragId = 0; fragId < fragCount; ++fragId) {
+
+        this.selection.fragIdsArray.push(fragId)
+      }
+
+      this.selection.dbIdArray = []
+
+      var instanceTree = selection.model.getData().instanceTree
+
+      var rootId = instanceTree.getRootId()
+
+      this.selection.dbIdArray.push(rootId)
+
+      this.drawAxis()
+
+    } else {
+
+      this.drawAxis()
+    }
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  //
+  //
+  ///////////////////////////////////////////////////////////////////////////
+  clearSelection() {
 
     this.selection = null
 
@@ -185,10 +187,10 @@ export default class RotateTool extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Draw rotate control
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
-  drawControl () {
+  drawAxis () {
 
     var bBox = this.geWorldBoundingBox(
       this.selection.fragIdsArray,
@@ -226,6 +228,58 @@ export default class RotateTool extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
+  // get 3d hit point on mesh
+  //
+  ///////////////////////////////////////////////////////////////////////////
+  getHitPoint (event) {
+
+    var screenPoint = {
+      x: event.clientX,
+      y: event.clientY
+    }
+
+    var n = this.normalize(screenPoint)
+
+    var hitPoint = this.viewer.utilities.getHitPoint(n.x, n.y)
+
+    return hitPoint
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  //
+  //
+  ///////////////////////////////////////////////////////////////////////////
+  hitPoint () {
+
+    return this._hitPoint
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  // normalize screen coordinates
+  //
+  ///////////////////////////////////////////////////////////////////////////
+  normalize (screenPoint) {
+
+    var viewport = this.viewer.navigation.getScreenViewport()
+
+    var n = {
+      x: (screenPoint.x - viewport.left) / viewport.width,
+      y: (screenPoint.y - viewport.top) / viewport.height
+    }
+
+    return n
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
+  //
+  //
+  ///////////////////////////////////////////////////////////////////////////
+  setHitPoint (hitPoint) {
+
+    this._hitPoint.copy(hitPoint)
+  }
+
+  ///////////////////////////////////////////////////////////////////////////
   //
   //
   ///////////////////////////////////////////////////////////////////////////
@@ -249,6 +303,13 @@ export default class RotateTool extends EventsEmitter {
       }
 
       return true
+    }
+
+    var hitPoint = this.getHitPoint(event)
+
+    if (hitPoint) {
+
+      this._hitPoint = hitPoint
     }
 
     return false
@@ -352,6 +413,11 @@ export default class RotateTool extends EventsEmitter {
 
     this.keys[event.key] = true
 
+    if (keyCode === 27) { //ESC
+
+      this.viewer.clearSelection()
+    }
+
     return false
   }
 
@@ -367,7 +433,7 @@ export default class RotateTool extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Rotate selected fragments
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
   rotateFragments (model, fragIdsArray, axis, angle, center) {
@@ -398,6 +464,15 @@ export default class RotateTool extends EventsEmitter {
         quaternion, fragProxy.quaternion)
 
       if (idx === 0) {
+
+        if(this._hitPoint) {
+
+          this._hitPoint.sub(center)
+
+          this._hitPoint.applyQuaternion(quaternion)
+
+          this._hitPoint.add(center)
+        }
 
         var euler = new THREE.Euler()
 
@@ -435,7 +510,7 @@ export default class RotateTool extends EventsEmitter {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// RotateControl Class
+//
 //
 ///////////////////////////////////////////////////////////////////////////////
 class RotateControl extends EventsEmitter {
@@ -477,7 +552,7 @@ class RotateControl extends EventsEmitter {
         center,
         new THREE.Euler(0, Math.PI / 2, 0),
         size * 0.0045,
-        size * 0.8, 0xFF0000,
+        size * 0.4, 0xFF0000,
         Math.PI,
         new THREE.Vector3(1, 0, 0)))
 
@@ -485,7 +560,7 @@ class RotateControl extends EventsEmitter {
         center,
         new THREE.Euler(Math.PI / 2, 0, 0),
         size * 0.0045,
-        size * 0.8, 0x00FF00,
+        size * 0.4, 0x00FF00,
         2 * Math.PI,
         new THREE.Vector3(0, 1, 0)))
 
@@ -493,7 +568,7 @@ class RotateControl extends EventsEmitter {
         center,
         new THREE.Euler(0, 0, 0),
         size * 0.0045,
-        size * 0.8, 0x0000FF,
+        size * 0.4, 0x0000FF,
         Math.PI,
         new THREE.Vector3(0, 0, 1)))
 
@@ -505,7 +580,7 @@ class RotateControl extends EventsEmitter {
         center,
         new THREE.Euler(Math.PI / 2, Math.PI / 2, 0),
         size * 0.0045,
-        size * 0.8, 0xFF0000,
+        size * 0.4, 0xFF0000,
         Math.PI,
         new THREE.Vector3(1, 0, 0)))
 
@@ -513,7 +588,7 @@ class RotateControl extends EventsEmitter {
         center,
         new THREE.Euler(Math.PI / 2, 0, 0),
         size * 0.0045,
-        size * 0.8, 0x00FF00,
+        size * 0.4, 0x00FF00,
         Math.PI,
         new THREE.Vector3(0, 1, 0)))
 
@@ -521,7 +596,7 @@ class RotateControl extends EventsEmitter {
         center,
         new THREE.Euler(0, 0, 0),
         size * 0.0045,
-        size * 0.8, 0x0000FF,
+        size * 0.4, 0x0000FF,
         2 * Math.PI,
         new THREE.Vector3(0, 0, 1)))
     }
@@ -547,7 +622,7 @@ class RotateControl extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Draw a line
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
   createLine (start, end, material) {
@@ -569,7 +644,7 @@ class RotateControl extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Draw a cone
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
   createCone (start, dir, length, material) {
@@ -617,7 +692,7 @@ class RotateControl extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Draw one axis
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
   createAxis (start, dir, size, color) {
@@ -630,7 +705,7 @@ class RotateControl extends EventsEmitter {
 
     var material = new THREE.LineBasicMaterial({
       color: color,
-      linewidth: 3,
+      linewidth: 2,
       depthTest: false,
       depthWrite: false,
       transparent: true
@@ -644,7 +719,7 @@ class RotateControl extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Draw a rotate gizmo
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
   createGizmo (center, euler, size, radius, color, range, axis) {
@@ -706,7 +781,7 @@ class RotateControl extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Draw a box
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
   createBox (w, h, d) {
@@ -729,7 +804,7 @@ class RotateControl extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Draw a sphere
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
   createSphere (radius) {
@@ -753,7 +828,7 @@ class RotateControl extends EventsEmitter {
   }
 
   ///////////////////////////////////////////////////////////////////////////
-  // Creates Raycatser object from the pointer
+  //
   //
   ///////////////////////////////////////////////////////////////////////////
   pointerToRaycaster (pointer) {
@@ -991,7 +1066,7 @@ class RotateControl extends EventsEmitter {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Highlightable Gizmo Material
+//
 //
 ///////////////////////////////////////////////////////////////////////////////
 class GizmoMaterial extends THREE.MeshBasicMaterial {
