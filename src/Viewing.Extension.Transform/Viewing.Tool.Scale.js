@@ -94,7 +94,6 @@ export default class ScaleTool extends EventsEmitter {
 
         fragProxy.getAnimTransform()
 
-        console.log(fragProxy)
         zoomFactor = new THREE.Vector3(
           fragProxy.startScale.x + (this._transformMesh.position.x - fragProxy.hitPoint.x) / 1000,
           fragProxy.startScale.y + (this._transformMesh.position.y - fragProxy.hitPoint.y) / 1000,
@@ -189,12 +188,16 @@ export default class ScaleTool extends EventsEmitter {
     if (this._selection) {
       this._transformControlTx.visible = true;
       this.enabled = true;
+      this.initializeSelection()
     }
   }
 
   toggleView() {
     this._transformControlTx.visible = !this._transformControlTx.visible;
     this.enabled = !this.enabled;
+    if (this.enabled) {
+      this.initializeSelection()
+    }
   }
 
   geWorldBoundingBox (fragIds, fragList) {

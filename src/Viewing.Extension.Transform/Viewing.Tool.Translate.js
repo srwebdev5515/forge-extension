@@ -173,11 +173,13 @@ export default class TransformTool extends EventsEmitter {
   }
 
   hide() {
+    console.log('hiding translate')
     this._transformControlTx.visible = false;
     this.enabled = false;
   }
 
   show() {
+    console.log('showing translate')
     this._transformControlTx.visible = true;
     this.enabled = true;
   }
@@ -200,6 +202,7 @@ export default class TransformTool extends EventsEmitter {
       z: hitPoint.z - modelTransform.translation.z
     }
 
+    console.log('initializing', this.enabled)
     this._transformControlTx.visible = this.enabled
 
     this._transformControlTx.setPosition(
