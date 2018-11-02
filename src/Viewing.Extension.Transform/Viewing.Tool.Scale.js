@@ -1,4 +1,5 @@
 import EventsEmitter from 'EventsEmitter'
+import * as lodash from 'lodash'
 
 export default class ScaleTool extends EventsEmitter {
 
@@ -25,8 +26,6 @@ export default class ScaleTool extends EventsEmitter {
     this._transformControlTx = null
 
     this._selectedFragProxyMap = {}
-
-    this.enabled = false
 
     this.onTxChange =
       this.onTxChange.bind(this)
@@ -66,7 +65,7 @@ export default class ScaleTool extends EventsEmitter {
       { color: 0xff0000 })
 
     this._viewer.impl.matman().addMaterial(
-      'transform-tool-material',
+      'scale-tool-material',
       material,
       true)
 
@@ -84,9 +83,16 @@ export default class ScaleTool extends EventsEmitter {
   //
   ///////////////////////////////////////////////////////////////////////////
   onTxChange() {
-    var zoomFactor;
 
     if(this._isDragging && this._transformControlTx.visible) {
+
+      const firstFragProxy =  this._selectedFragProxyMap[this._selection.fragIdsArray[0]];
+      var zoomFactor = new THREE.Vector3(
+        firstFragProxy.startScale.x + (this._transformMesh.position.x - firstFragProxy.hitPoint.x) / 1000,
+        firstFragProxy.startScale.y + (this._transformMesh.position.y - firstFragProxy.hitPoint.y) / 1000,
+        firstFragProxy.startScale.z + (this._transformMesh.position.z - firstFragProxy.hitPoint.z) / 1000
+      )
+      this._transformControlTx.setPosition(firstFragProxy.hitPoint);
 
       for(var fragId in this._selectedFragProxyMap) {
 
@@ -94,19 +100,12 @@ export default class ScaleTool extends EventsEmitter {
 
         fragProxy.getAnimTransform()
 
-        zoomFactor = new THREE.Vector3(
-          fragProxy.startScale.x + (this._transformMesh.position.x - fragProxy.hitPoint.x) / 1000,
-          fragProxy.startScale.y + (this._transformMesh.position.y - fragProxy.hitPoint.y) / 1000,
-          fragProxy.startScale.z + (this._transformMesh.position.z - fragProxy.hitPoint.z) / 1000
-        )
         fragProxy.scale = zoomFactor
 
-        this._transformControlTx.setPosition(fragProxy.hitPoint);
-
         var position = new THREE.Vector3(
-          fragProxy.startPosition.x - (fragProxy.hitPoint.x - fragProxy.startPosition.x) * (zoomFactor.x - fragProxy.startScale.x),
-          fragProxy.startPosition.y - (fragProxy.hitPoint.y - fragProxy.startPosition.y) * (zoomFactor.y - fragProxy.startScale.y),
-          fragProxy.startPosition.z - (fragProxy.hitPoint.z - fragProxy.startPosition.z) * (zoomFactor.z - fragProxy.startScale.z)
+          fragProxy.hitPoint.x - (fragProxy.hitPoint.x - fragProxy.startPosition.x) * zoomFactor.x,
+          fragProxy.hitPoint.y - (fragProxy.hitPoint.y - fragProxy.startPosition.y) * zoomFactor.y,
+          fragProxy.hitPoint.z - (fragProxy.hitPoint.z - fragProxy.startPosition.z) * zoomFactor.z
         )
 
         fragProxy.position = position
@@ -145,58 +144,28 @@ export default class ScaleTool extends EventsEmitter {
 
       this._selection = event.selections[0]
 
-      if (this.fullTransform) {
+      let dbids = []
+      this._selection.dbIdArray.forEach(dbId => {
+        dbids = dbids.concat(lodash.uniq(
+          Object.keys(cachedForgeItemsMap).map(id => cachedForgeItemsMap[id]).filter(item => item.name == cachedForgeItemsMap[dbId].name).map(item => item.dbId))
+        )
+      })
+      this._selection.dbIdArray = dbids;
+      
+      let fragIds = []
+      this._selection.dbIdArray.forEach(dbId => {
+        fragIds = fragIds.concat(forge.getFragIdsOfDbId(dbId))
+      })
+      this._selection.fragIdsArray = fragIds
 
-        this._selection.fragIdsArray = []
-
-        var fragCount = this._selection.model.getFragmentList().
-          fragments.fragId2dbId.length
-
-        for (var fragId = 0; fragId < fragCount; ++fragId) {
-
-          this._selection.fragIdsArray.push(fragId)
-        }
-
-        this._selection.dbIdArray = []
-
-        var instanceTree =
-          this._selection.model.getData().instanceTree
-
-        var rootId = instanceTree.getRootId()
-
-        this._selection.dbIdArray.push(rootId)
-      }
-
-      this.emit('scale.modelSelected',
+      this.emit('transform.modelSelected',
         this._selection)
       
-      this.initializeSelection(
-        this._hitPoint)
+      this.initializeSelection()
     }
     else {
 
       this.clearSelection()
-    }
-  }
-
-  hide() {
-    this._transformControlTx.visible = false;
-    this.enabled = false;
-  }
-
-  show() {
-    if (this._selection) {
-      this._transformControlTx.visible = true;
-      this.enabled = true;
-      this.initializeSelection()
-    }
-  }
-
-  toggleView() {
-    this._transformControlTx.visible = !this._transformControlTx.visible;
-    this.enabled = !this.enabled;
-    if (this.enabled) {
-      this.initializeSelection()
     }
   }
 
@@ -218,7 +187,7 @@ export default class ScaleTool extends EventsEmitter {
 
     this._selectedFragProxyMap = {}
 
-    this._transformControlTx.visible = this.enabled
+    this._transformControlTx.visible = true
     
     var bBox = this.geWorldBoundingBox(
       this._selection.fragIdsArray,
@@ -250,9 +219,9 @@ export default class ScaleTool extends EventsEmitter {
       fragProxy.hitPoint = center
 
       fragProxy.startPosition = {
-        x: fragProxy.position.x,
-        y: fragProxy.position.y,
-        z: fragProxy.position.z
+        x: ( fragProxy.position.x - center.x * (1 - fragProxy.scale.x) ) /  fragProxy.scale.x,
+        y: ( fragProxy.position.y - center.y * (1 - fragProxy.scale.y) ) /  fragProxy.scale.y,
+        z: ( fragProxy.position.z - center.z * (1 - fragProxy.scale.z) ) /  fragProxy.scale.z,
       }
       
       fragProxy.startScale = {
@@ -429,11 +398,11 @@ export default class ScaleTool extends EventsEmitter {
           z: fragProxy.scale.z
         }
 
-        fragProxy.startPosition = {
-          x: fragProxy.position.x,
-          y: fragProxy.position.y,
-          z: fragProxy.position.z
-        }
+        // fragProxy.startPosition = {
+        //   x: fragProxy.position.x,
+        //   y: fragProxy.position.y,
+        //   z: fragProxy.position.z
+        // }
 
       }
     }
@@ -453,6 +422,7 @@ export default class ScaleTool extends EventsEmitter {
     if (this._isDragging) {
 
       if (this._transformControlTx.onPointerMove(event) ) {
+
         return true
       }
 

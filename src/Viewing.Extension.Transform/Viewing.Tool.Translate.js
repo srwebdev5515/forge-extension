@@ -27,8 +27,6 @@ export default class TransformTool extends EventsEmitter {
 
     this._selectedFragProxyMap = {}
 
-    this.enabled = false
-
     this.onTxChange =
       this.onTxChange.bind(this)
 
@@ -163,8 +161,7 @@ export default class TransformTool extends EventsEmitter {
       this.emit('transform.modelSelected',
         this._selection)
       
-      this.initializeSelection(
-        this._hitPoint)
+      this.initializeSelection()
     }
     else {
 
@@ -172,24 +169,30 @@ export default class TransformTool extends EventsEmitter {
     }
   }
 
-  hide() {
-    console.log('hiding translate')
-    this._transformControlTx.visible = false;
-    this.enabled = false;
+  geWorldBoundingBox (fragIds, fragList) {
+
+    var fragbBox = new THREE.Box3()
+    var nodebBox = new THREE.Box3()
+
+    fragIds.forEach((fragId) => {
+
+      fragList.getWorldBounds(fragId, fragbBox)
+      nodebBox.union(fragbBox)
+    })
+
+    return nodebBox
   }
 
-  show() {
-    console.log('showing translate')
-    this._transformControlTx.visible = true;
-    this.enabled = true;
-  }
+  initializeSelection () {
 
-  toggleView() {
-    this._transformControlTx.visible = !this._transformControlTx.visible;
-    this.enabled = !this.enabled;
-  }
+    var bBox = this.geWorldBoundingBox(
+      this._selection.fragIdsArray,
+      this._selection.model.getFragmentList())
 
-  initializeSelection (hitPoint) {
+    const hitPoint = new THREE.Vector3(
+      (bBox.min.x + bBox.max.x) / 2,
+      (bBox.min.y + bBox.max.y) / 2,
+      (bBox.min.z + bBox.max.z) / 2)
 
     this._selectedFragProxyMap = {}
 
@@ -202,8 +205,7 @@ export default class TransformTool extends EventsEmitter {
       z: hitPoint.z - modelTransform.translation.z
     }
 
-    console.log('initializing', this.enabled)
-    this._transformControlTx.visible = this.enabled
+    this._transformControlTx.visible = true
 
     this._transformControlTx.setPosition(
       hitPoint)

@@ -63,17 +63,17 @@ class TransformExtension extends ExtensionBase {
         if (this.translateTool.active) {
 
           this._viewer.toolController.deactivateTool(txTool)
-          this._txControl.container.classList.remove('active')
 
         } else {
 
           this._viewer.toolController.activateTool(txTool)
-          this._txControl.container.classList.add('active')
-
           this._viewer.toolController.deactivateTool(rxTool)
           this._viewer.toolController.deactivateTool(scTool)
-          this._rxControl.container.classList.remove('active')
-          this._scControl.container.classList.remove('active')
+
+          if (this.aggregateSelectedEvent) {
+            // this.translateTool.onAggregateSelectionChanged(this.aggregateSelectedEvent)
+          }
+
         }
       })
 
@@ -89,20 +89,17 @@ class TransformExtension extends ExtensionBase {
         if (this.rotateTool.active) {
 
           this._viewer.toolController.deactivateTool(rxTool)
-          this._rxControl.container.classList.remove('active')
-          this._comboCtrl.container.classList.remove('active')
 
         } else {
 
           this._viewer.toolController.activateTool(rxTool)
-          this._rxControl.container.classList.add('active')
-
           this._viewer.toolController.deactivateTool(txTool)
           this._viewer.toolController.deactivateTool(scTool)
-          this._txControl.container.classList.remove('active')
-          this._scControl.container.classList.remove('active')
+          
+          if (this.aggregateSelectedEvent) {
+            // this.rotateTool.onAggregateSelectionChanged(this.aggregateSelectedEvent)
+          }
 
-          this._comboCtrl.container.classList.add('active')
         }
       })
 
@@ -118,20 +115,17 @@ class TransformExtension extends ExtensionBase {
         if (this.scaleTool.active) {
 
           this._viewer.toolController.deactivateTool(scTool)
-          this._scControl.container.classList.remove('active')
-          this._comboCtrl.container.classList.remove('active')
 
         } else {
 
           this._viewer.toolController.activateTool(scTool)
-          this._scControl.container.classList.add('active')
-
           this._viewer.toolController.deactivateTool(txTool)
           this._viewer.toolController.deactivateTool(rxTool)
-          this._txControl.container.classList.remove('active')
-          this._rxControl.container.classList.remove('active')
 
-          this._comboCtrl.container.classList.add('active')
+          if (this.aggregateSelectedEvent) {
+            // this.scaleTool.onAggregateSelectionChanged(this.aggregateSelectedEvent)
+          }
+          
         }
       })
 

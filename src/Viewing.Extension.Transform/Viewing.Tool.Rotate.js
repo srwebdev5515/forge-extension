@@ -116,7 +116,7 @@ export default class RotateTool extends EventsEmitter {
       return;
     }
 
-    if (this.rotateControl && this.rotateControl.engaged) {
+    if (selectionStatus.movable && this.rotateControl && this.rotateControl.engaged) {
 
       this.rotateControl.engaged = false
 
